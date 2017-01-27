@@ -1,0 +1,14 @@
+{
+  "id": "GraphDBExporter",
+  "name": "Graph Database Exporter",
+  "version": "0.1.0",
+  "description": "Maps the model to a OrientDB database",
+  "icon": {
+    "class": "fa fa-database",
+    "src": ""
+  },
+  "disableServerSideExecution": false,
+  "disableBrowserSideExecution": true,
+  "writeAccessRequired": false,
+  "configStructure": []
+}

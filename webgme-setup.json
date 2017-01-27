@@ -1,0 +1,13 @@
+{
+  "components": {
+    "plugins": {
+      "GraphDBExporter": {
+        "src": "src/plugins/GraphDBExporter",
+        "test": "test/plugins/GraphDBExporter"
+      }
+    }
+  },
+  "dependencies": {
+    "plugins": {}
+  }
+}
