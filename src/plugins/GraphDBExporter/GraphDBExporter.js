@@ -60,24 +60,26 @@ define([
         // Use self to access core, project, result, logger etc from PluginBase.
         // These are all instantiated at this point.
         var self = this,
-            ODatabase = require('orientjs').ODatabase,
+            OrientDB = require('orientjs'),
             data,
             logger = this.logger,
-        // FIXME: This should create a new database!
-            db = new ODatabase({
+            server = new OrientDB({
                 host: 'localhost',
                 port: 2424,
                 username: 'root',
-                password: 'resan',
-                name: 'TEST'
-            });
+                password: 'resan'
+            }),
+            db;
 
         logger.info('Deleting nodes and relations from graphDB...');
-
-        Q.allSettled([
-            db.delete('VERTEX', 'node').where('true').scalar(),
-            db.delete('EDGE', 'relation').where('true').scalar()
-        ])
+        this.createOrGetDatabase(server)
+            .then(function (db_) {
+                db = db_;
+                return Q.allSettled([
+                    db.delete('VERTEX', 'node').where('true').scalar(),
+                    db.delete('EDGE', 'relation').where('true').scalar()
+                ])
+            })
             .then(function () {
                 logger.info('Creating new classes and indices...');
                 return Q.allSettled([
@@ -117,7 +119,7 @@ define([
 
                 logger.info('Adding nodes to graphDB...');
                 return Q.all(data.nodes.map(function (node) {
-                    console.log(node);
+                    self.logger.debug(node);
                     return db.query(node);
                 }));
             })
@@ -125,19 +127,47 @@ define([
 
                 logger.info('Adding relations to graphDB...');
                 return Q.all(data.relations.map(function (rel) {
-                    console.log(rel);
+                    self.logger.debug(rel);
                     return db.query(rel);
                 }));
             })
             .then(function () {
                 self.result.setSuccess(true);
                 logger.info('Finished!');
+                server.close();
                 callback(null, self.result);
             })
             .catch(function (err) {
                 logger.error(err.stack);
+                server.close();
                 callback(err, self.result);
             });
+    };
+
+    GraphDBExporter.prototype.createOrGetDatabase = function (server) {
+        var deferred = Q.defer(),
+            self = this;
+
+        server.create({
+            type: 'graph',
+            storage: 'plocal',
+            name: self.projectName // FIXME: We should use projectId w/o the + divider
+        }).
+            then(function (db) {
+            self.logger.info('Created new database', db.name);
+            deferred.resolve(db);
+        }).catch(function (err) {
+            var db;
+            if (err.message.indexOf('already exists') > -1) {
+                db = server.use(self.projectName);
+                self.logger.info('Opened existing database', db.name);
+                deferred.resolve(db);
+            } else {
+                deferred.reject(err);
+            }
+        });
+
+        return deferred.promise;
     };
 
     GraphDBExporter.prototype.getGraphDBData = function (core, rootNode, callback) {
@@ -228,18 +258,21 @@ define([
 
                 if (ptrName !== 'base') {
                     targetPath = core.getPointerPath(node, ptrName);
-                    relations.push([
-                        'create edge pointer from (select from node where path="',
-                        core.getPath(node),
-                        '") to (select from node where path="',
-                        targetPath,
-                        '") set ptr="',
-                        ptrName,
-                        '"'
-                    ].join(''));
+                    //TODO: Should null pointers have a special target?
+                    if (typeof targetPath === 'string') {
+                        relations.push([
+                            'create edge pointer from (select from node where path="',
+                            core.getPath(node),
+                            '") to (select from node where path="',
+                            targetPath,
+                            '") set ptr="',
+                            ptrName,
+                            '"'
+                        ].join(''));
 
-                    if (ptrName == 'src' || ptrName === 'dst') {
-                        connInfo[ptrName] = targetPath;
+                        if (ptrName == 'src' || ptrName === 'dst') {
+                            connInfo[ptrName] = targetPath;
+                        }
                     }
                 }
             });
