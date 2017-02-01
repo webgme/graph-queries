@@ -75,41 +75,7 @@ define([
         this.createOrGetDatabase(server)
             .then(function (db_) {
                 db = db_;
-                return Q.allSettled([
-                    db.delete('VERTEX', 'node').where('true').scalar(),
-                    db.delete('EDGE', 'relation').where('true').scalar()
-                ])
-            })
-            .then(function () {
-                logger.info('Creating new classes and indices...');
-                return Q.allSettled([
-                    db.class.create('node', 'V'),
-                    db.class.create('relation', 'E')
-                ]);
-            })
-            .then(function () {
-                return Q.allSettled([
-                    db.class.create('parent', 'relation'),
-                    db.class.create('base', 'relation'),
-                    db.class.create('meta', 'relation'),
-                    db.class.create('pointer', 'relation'),
-                    db.class.create('member', 'relation'),
-                    db.class.create('connection', 'relation')
-                ]);
-            })
-            .then(function () {
-                return Q.allSettled([
-                    db.query('create property node.name string'),
-                    db.query('create property node.guid string'),
-                    db.query('create property node.path string'),
-                    db.query('create property node.relid string'),
-
-                    db.query('CREATE INDEX name_idx ON node (name) FULLTEXT'),
-                    db.query('CREATE INDEX guid_idx ON node (guid) UNIQUE'),
-                    db.query('CREATE INDEX path_idx ON node (path) UNIQUE')
-                ]);
-            })
-            .then(function () {
+                self.db = db;
                 logger.info('Getting graph info from gme-model...');
                 return self.getGraphDBData(self.core, self.rootNode);
             })
@@ -144,7 +110,7 @@ define([
             });
     };
 
-    GraphDBExporter.prototype.createOrGetDatabase = function (server) {
+    GraphDBExporter.prototype.createOrGetDatabase = function (server, forceNew) {
         var deferred = Q.defer(),
             self = this;
 
@@ -152,16 +118,86 @@ define([
             type: 'graph',
             storage: 'plocal',
             name: self.projectName // FIXME: We should use projectId w/o the + divider
-        }).
-            then(function (db) {
+        }).then(function (db) {
+            var nodeClass;
             self.logger.info('Created new database', db.name);
-            deferred.resolve(db);
+            self.logger.info('Creating classes, properties and indices...');
+
+            // Create the base-classes
+            Q.all([
+                db.class.create('node', 'V'),
+                db.class.create('relation', 'E')
+            ])
+                .then(function (res) {
+                    // Create properties to nodeClass.
+                    nodeClass = res[0];
+                    return nodeClass.property.create([
+                        {
+                            name: 'name',
+                            type: 'String'
+                        },
+                        {
+                            name: 'guid',
+                            type: 'String'
+                        },
+                        {
+                            name: 'path',
+                            type: 'String'
+                        },
+                        {
+                            name: 'relid',
+                            type: 'String'
+                        }
+                    ]);
+                })
+                .then(function () {
+                    // Create indices on node properties.
+                    db.index.create({
+                        name: 'node.name',
+                        type: 'fulltext'
+                    });
+
+                    db.index.create({
+                        name: 'node.path',
+                        type: 'unique'
+                    });
+
+                    db.index.create({
+                        name: 'node.guid',
+                        type: 'unique'
+                    });
+
+                    // Create relation classes.
+                    return Q.all([
+                        db.class.create('parent', 'relation'),
+                        db.class.create('base', 'relation'),
+                        db.class.create('meta', 'relation'),
+                        db.class.create('pointer', 'relation'),
+                        db.class.create('member', 'relation'),
+                        db.class.create('connection', 'relation')
+                    ]);
+                })
+                .then(function () {
+                    deferred.resolve(db);
+                })
+                .catch(deferred.reject);
+
         }).catch(function (err) {
             var db;
             if (err.message.indexOf('already exists') > -1) {
                 db = server.use(self.projectName);
                 self.logger.info('Opened existing database', db.name);
-                deferred.resolve(db);
+                self.logger.info('Deleting existing vertices and edges..');
+
+                Q.all([
+                    db.delete('VERTEX', 'node').where('true').scalar(),
+                    db.delete('EDGE', 'relation').where('true').scalar()
+                ])
+                    .then(function () {
+                        deferred.resolve(db);
+                    })
+                    .catch(deferred.reject);
+
             } else {
                 deferred.reject(err);
             }
