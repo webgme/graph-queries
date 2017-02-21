@@ -4,27 +4,39 @@
  */
 
 var Q = require('q'),
-    maps = requirejs('plugin/GraphDBExporter/GraphDBExporter/maps'),
+    maps = requireJS('plugin/GraphDBExporter/GraphDBExporter/maps'),
     superagent = require('superagent');
 
 function Query(baseUrl, username, password) {
     var basicAuth = 'Basic ' + new Buffer(username + ':' + password).toString('base64');
 
+    // http://localhost:2480/command/guest-FSM-master/gremlin/-/20
+    // Basic auth
+    // body: {"command": "g.V.has('path', '/1')", "mode": "graph"}
     function getUrl(dbName, limit) {
         return [
             baseUrl,
             'command',
             dbName,
+            'gremlin',
             '-',
-            limit || 20
+            limit
         ].join('/');
     }
 
     this.sendCommand = function (ownerId, projectName, branchOrCommitHash, command, limit) {
         var deferred = Q.defer(),
-            dbName = maps.getDBNameFromOwnerAndProjectName(ownerId, projectName, branchOrCommitHash);
+            dbName = maps.getDBNameFromOwnerAndProjectName(ownerId, projectName, branchOrCommitHash),
+            url = getUrl(dbName, limit || 20);
 
-        superagent.post(getUrl(dbName, limit))
+        if (!command) {
+            deferred.reject(new Error('command not supplied in body'));
+            return deferred.promise;
+        }
+
+        console.log('Posting', url);
+        console.log('With command', command);
+        superagent.post(url)
             .set('Authorization', basicAuth)
             .send({
                 command: command,
@@ -32,14 +44,13 @@ function Query(baseUrl, username, password) {
             })
             .end(function (err, res) {
                 if (err) {
-                    console.log('res at error:', res);
                     deferred.reject(err);
                 } else {
-                    deferred.resolve(res);
+                    deferred.resolve(res.body);
                 }
             });
 
-        return deferred.promise();
+        return deferred.promise;
     }
 }
 

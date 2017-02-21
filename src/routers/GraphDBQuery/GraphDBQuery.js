@@ -61,8 +61,9 @@ function initialize(middlewareOpts) {
         var userId = getUserId(req);
         // TODO: Ensure user is authorized.
 
-        query.sendCommand(req.params.ownerId, req.params.projectName, req.params.branchOrCommitHash, req.body)
+        query.sendCommand(req.params.ownerId, req.params.projectName, req.params.branchOrCommitHash, req.body.command, 20)
             .then(function (result) {
+                logger.info('command succeeded', result);
                 res.json(result);
             })
             .catch(function (err) {

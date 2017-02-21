@@ -14,11 +14,13 @@ define([
     'plugin/PluginConfig',
     'text!./metadata.json',
     'plugin/PluginBase',
-    'q'
+    'q',
+    './maps'
 ], function (PluginConfig,
              pluginMetadata_,
              PluginBase,
-             Q) {
+             Q,
+             maps) {
     'use strict';
 
     var pluginMetadata = JSON.parse(pluginMetadata_);
@@ -57,17 +59,16 @@ define([
      * @param {function(string, plugin.PluginResult)} callback - the result callback
      */
     GraphDBExporter.prototype.main = function (callback) {
-        // Use self to access core, project, result, logger etc from PluginBase.
-        // These are all instantiated at this point.
         var self = this,
             OrientDB = require('orientjs'),
+            config = this.getCurrentConfig(),
             data,
             logger = this.logger,
             server = new OrientDB({
-                host: 'localhost',
-                port: 2424,
-                username: 'root',
-                password: 'resan'
+                host: config.host,
+                port: config.port,
+                username: config.username,
+                password: config.password
             }),
             db;
 
@@ -117,7 +118,7 @@ define([
         server.create({
             type: 'graph',
             storage: 'plocal',
-            name: self.projectName // FIXME: We should use projectId w/o the + divider
+            name: maps.getDBNameFromProjectId(this.projectId, this.branchName) //TODO: commitHash and tmp
         }).then(function (db) {
             var nodeClass;
             self.logger.info('Created new database', db.name);
@@ -240,11 +241,16 @@ define([
                 promises = [];
 
             attributes = core.getAttributeNames(node).map(function (attrName) {
-                //FIXME: What are the reserved keywords and how should they be dealt with??
-                if (attrName === 'limit') {
-                    attrName = 'limitlimit';
+                var dbName;
+
+                if (maps.CONSTANTS.ILLEGAL_ATTR.indexOf(attrName) > -1) {
+                    dbName = maps.CONSTANTS.PREFIX_ILLEGAL_ATTR + attrName;
+                    logger.warn('illegal attribute', attrName, ', mapped name:', dbName);
+                } else {
+                    dbName = attrName;
                 }
-                return attrName + '="' + core.getAttribute(node, attrName) + '"';
+
+                return dbName + '="' + core.getAttribute(node, attrName) + '"';
             }).join(', ');
 
             // Add the node.
@@ -298,7 +304,7 @@ define([
                     if (typeof targetPath === 'string') {
                         relations.push([
                             'create edge pointer from (select from node where path="',
-                            core.getPath(node),
+                            nodePath,
                             '") to (select from node where path="',
                             targetPath,
                             '") set ptr="',
@@ -324,17 +330,20 @@ define([
                 ].join(''));
             }
 
-            // TODO: Deal with sets!
             core.getSetNames(node).forEach(function (setName) {
                 var memberPaths = core.getMemberPaths(node, setName);
                 memberPaths.forEach(function (memberPath) {
-                    promises.push(
-                        core.loadByPath(rootNode, memberPath)
-                            .then(function (memberNode) {
-                                var memberMetaNode = core.getBaseType(memberNode),
-                                    memberMetaName = core.getAttribute(memberMetaNode, 'name');
-                            })
-                    );
+                    if (typeof memberPath === 'string') {
+                        relations.push([
+                            'create edge member from (select from node where path="',
+                            nodePath,
+                            '") to (select from node where path="',
+                            memberPath,
+                            '") set set="',
+                            setName,
+                            '"'
+                        ].join(''));
+                    }
                 })
             });
 

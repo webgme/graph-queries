@@ -5,7 +5,10 @@
 define(['common/storage/constants'], function(STORAGE_CONSTANTS) {
 
     var CONSTANTS = {
-        DB_NAME_SEP: '-'
+        DB_NAME_SEP: '-',
+        //FIXME: What are the reserved keywords and how should they be dealt with??
+        ILLEGAL_ATTR: ['limit', 'relid', 'path', 'guid', '@rid', '@class'],
+        PREFIX_ILLEGAL_ATTR: '_'
     };
 
     function _trimCommit(branchOrCommitHash) {
