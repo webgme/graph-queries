@@ -113,12 +113,13 @@ define([
 
     GraphDBExporter.prototype.createOrGetDatabase = function (server, forceNew) {
         var deferred = Q.defer(),
-            self = this;
+            self = this,
+            dbName = maps.getDBNameFromProjectId(this.projectId, this.branchName); //TODO: commitHash and tmp
 
         server.create({
             type: 'graph',
             storage: 'plocal',
-            name: maps.getDBNameFromProjectId(this.projectId, this.branchName) //TODO: commitHash and tmp
+            name: dbName
         }).then(function (db) {
             var nodeClass;
             self.logger.info('Created new database', db.name);
@@ -186,7 +187,7 @@ define([
         }).catch(function (err) {
             var db;
             if (err.message.indexOf('already exists') > -1) {
-                db = server.use(self.projectName);
+                db = server.use(dbName);
                 self.logger.info('Opened existing database', db.name);
                 self.logger.info('Deleting existing vertices and edges..');
 
@@ -208,24 +209,23 @@ define([
     };
 
     GraphDBExporter.prototype.getGraphDBData = function (core, rootNode, callback) {
-        var rootAttrs,
-            nodes = [],
+        var nodes = [],
             relations = [];
 
-        rootAttrs = core.getAttributeNames(rootNode).map(function (attrName) {
-            //FIXME: What are the reserved keywords and how should they be dealt with??
-            if (attrName === 'limit') {
-                attrName = 'limitlimit';
-            }
-            return attrName + '="' + core.getAttribute(rootNode, attrName) + '"';
-        }).join(', ');
-
-        nodes.push([
-            'create vertex node set guid="',
-            core.getGuid(rootNode),
-            '", path="", relid="", ',
-            rootAttrs
-        ].join(''));
+        // rootAttrs = core.getAttributeNames(rootNode).map(function (attrName) {
+        //     //FIXME: What are the reserved keywords and how should they be dealt with??
+        //     if (attrName === 'limit') {
+        //         attrName = 'limitlimit';
+        //     }
+        //     return attrName + '="' + core.getAttribute(rootNode, attrName) + '"';
+        // }).join(', ');
+        //
+        // nodes.push([
+        //     'create vertex node set guid="',
+        //     core.getGuid(rootNode),
+        //     '", path="", relid="", ',
+        //     rootAttrs
+        // ].join(''));
 
         function atNode(node, next) {
             var deferred = Q.defer(),
@@ -264,6 +264,12 @@ define([
                 '", ',
                 attributes
             ].join(''));
+
+            if (core.getPath(node) === '') {
+                // It's the rootNode...
+                deferred.resolve();
+                return deferred.promise.nodeify(next);
+            }
 
             // Parent relationship
             relations.push([
@@ -354,7 +360,7 @@ define([
             return deferred.promise.nodeify(next);
         }
 
-        return core.traverse(rootNode, {excludeRoot: true, stopOnError: true}, atNode)
+        return core.traverse(rootNode, {excludeRoot: false, stopOnError: true}, atNode)
             .then(function () {
                 return {
                     nodes: nodes,
