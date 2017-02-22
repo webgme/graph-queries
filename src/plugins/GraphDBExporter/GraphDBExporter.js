@@ -209,7 +209,8 @@ define([
     };
 
     GraphDBExporter.prototype.getGraphDBData = function (core, rootNode, callback) {
-        var nodes = [],
+        var self = this,
+            nodes = [],
             relations = [];
 
         // rootAttrs = core.getAttributeNames(rootNode).map(function (attrName) {
@@ -245,7 +246,7 @@ define([
 
                 if (maps.CONSTANTS.ILLEGAL_ATTR.indexOf(attrName) > -1) {
                     dbName = maps.CONSTANTS.PREFIX_ILLEGAL_ATTR + attrName;
-                    logger.warn('illegal attribute', attrName, ', mapped name:', dbName);
+                    self.logger.warn('Illegal attribute', attrName, ', mapped name:', dbName);
                 } else {
                     dbName = attrName;
                 }
