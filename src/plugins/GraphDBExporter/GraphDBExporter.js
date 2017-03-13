@@ -213,20 +213,16 @@ define([
             nodes = [],
             relations = [];
 
-        // rootAttrs = core.getAttributeNames(rootNode).map(function (attrName) {
-        //     //FIXME: What are the reserved keywords and how should they be dealt with??
-        //     if (attrName === 'limit') {
-        //         attrName = 'limitlimit';
-        //     }
-        //     return attrName + '="' + core.getAttribute(rootNode, attrName) + '"';
-        // }).join(', ');
-        //
-        // nodes.push([
-        //     'create vertex node set guid="',
-        //     core.getGuid(rootNode),
-        //     '", path="", relid="", ',
-        //     rootAttrs
-        // ].join(''));
+        function encodeAttribute(str) {
+            //return str;
+            if (typeof str === 'string') {
+                // TODO: There hsould be a better way to do this..
+                //return str.replace(/&/g, "&amp;").replace(/>/g, "&gt;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+                return str.replace(/([^"\\]*(?:\\.[^"\\]*)*)"/g, '$1\\"');
+            } else {
+                return str;
+            }
+        }
 
         function atNode(node, next) {
             var deferred = Q.defer(),
@@ -251,7 +247,7 @@ define([
                     dbName = attrName;
                 }
 
-                return dbName + '="' + core.getAttribute(node, attrName) + '"';
+                return '`' + dbName + '`=`' + encodeAttribute(core.getAttribute(node, attrName)) + '`';
             }).join(', ');
 
             // Add the node.
