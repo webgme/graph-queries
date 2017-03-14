@@ -23,6 +23,9 @@
     "chai": "^3.0.0"
   },
   "dependencies": {
-    "orientjs": "^2.2.4"
+    "body-parser": "^1.16.1",
+    "orientjs": "^2.2.4",
+    "q": "^1.4.1",
+    "superagent": "2.2.0"
   }
 }

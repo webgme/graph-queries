@@ -5,9 +5,17 @@
         "src": "src/plugins/GraphDBExporter",
         "test": "test/plugins/GraphDBExporter"
       }
+    },
+    "routers": {
+      "GraphDBQuery": {
+        "src": "src/routers/GraphDBQuery",
+        "test": "test/routers/GraphDBQuery",
+        "mount": "routers/GraphDBQuery"
+      }
     }
   },
   "dependencies": {
-    "plugins": {}
+    "plugins": {},
+    "routers": {}
   }
 }

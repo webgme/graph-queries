@@ -13,7 +13,7 @@ config.plugin.basePaths.push(__dirname + '/../src/plugins');
 
 
 
-
+config.rest.components['routers/GraphDBQuery'] = __dirname + '/../src/routers/GraphDBQuery/GraphDBQuery.js';
 
 // Visualizer descriptors
 

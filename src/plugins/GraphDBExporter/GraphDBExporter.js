@@ -14,11 +14,13 @@ define([
     'plugin/PluginConfig',
     'text!./metadata.json',
     'plugin/PluginBase',
-    'q'
+    'q',
+    './maps'
 ], function (PluginConfig,
              pluginMetadata_,
              PluginBase,
-             Q) {
+             Q,
+             maps) {
     'use strict';
 
     var pluginMetadata = JSON.parse(pluginMetadata_);
@@ -57,17 +59,16 @@ define([
      * @param {function(string, plugin.PluginResult)} callback - the result callback
      */
     GraphDBExporter.prototype.main = function (callback) {
-        // Use self to access core, project, result, logger etc from PluginBase.
-        // These are all instantiated at this point.
         var self = this,
             OrientDB = require('orientjs'),
+            config = this.getCurrentConfig(),
             data,
             logger = this.logger,
             server = new OrientDB({
-                host: 'localhost',
-                port: 2424,
-                username: 'root',
-                password: 'resan'
+                host: config.host,
+                port: config.port,
+                username: config.username,
+                password: config.password
             }),
             db;
 
@@ -112,12 +113,13 @@ define([
 
     GraphDBExporter.prototype.createOrGetDatabase = function (server, forceNew) {
         var deferred = Q.defer(),
-            self = this;
+            self = this,
+            dbName = maps.getDBNameFromProjectId(this.projectId, this.branchName); //TODO: commitHash and tmp
 
         server.create({
             type: 'graph',
             storage: 'plocal',
-            name: self.projectName // FIXME: We should use projectId w/o the + divider
+            name: dbName
         }).then(function (db) {
             var nodeClass;
             self.logger.info('Created new database', db.name);
@@ -185,7 +187,7 @@ define([
         }).catch(function (err) {
             var db;
             if (err.message.indexOf('already exists') > -1) {
-                db = server.use(self.projectName);
+                db = server.use(dbName);
                 self.logger.info('Opened existing database', db.name);
                 self.logger.info('Deleting existing vertices and edges..');
 
@@ -207,24 +209,20 @@ define([
     };
 
     GraphDBExporter.prototype.getGraphDBData = function (core, rootNode, callback) {
-        var rootAttrs,
+        var self = this,
             nodes = [],
             relations = [];
 
-        rootAttrs = core.getAttributeNames(rootNode).map(function (attrName) {
-            //FIXME: What are the reserved keywords and how should they be dealt with??
-            if (attrName === 'limit') {
-                attrName = 'limitlimit';
+        function encodeAttribute(str) {
+            //return str;
+            if (typeof str === 'string') {
+                // TODO: There hsould be a better way to do this..
+                //return str.replace(/&/g, "&amp;").replace(/>/g, "&gt;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+                return str.replace(/([^"\\]*(?:\\.[^"\\]*)*)"/g, '$1\\"');
+            } else {
+                return str;
             }
-            return attrName + '="' + core.getAttribute(rootNode, attrName) + '"';
-        }).join(', ');
-
-        nodes.push([
-            'create vertex node set guid="',
-            core.getGuid(rootNode),
-            '", path="", relid="", ',
-            rootAttrs
-        ].join(''));
+        }
 
         function atNode(node, next) {
             var deferred = Q.defer(),
@@ -240,11 +238,16 @@ define([
                 promises = [];
 
             attributes = core.getAttributeNames(node).map(function (attrName) {
-                //FIXME: What are the reserved keywords and how should they be dealt with??
-                if (attrName === 'limit') {
-                    attrName = 'limitlimit';
+                var dbName;
+
+                if (maps.CONSTANTS.ILLEGAL_ATTR.indexOf(attrName) > -1) {
+                    dbName = maps.CONSTANTS.PREFIX_ILLEGAL_ATTR + attrName;
+                    self.logger.warn('Illegal attribute', attrName, ', mapped name:', dbName);
+                } else {
+                    dbName = attrName;
                 }
-                return attrName + '="' + core.getAttribute(node, attrName) + '"';
+
+                return '`' + dbName + '`=`' + encodeAttribute(core.getAttribute(node, attrName)) + '`';
             }).join(', ');
 
             // Add the node.
@@ -258,6 +261,12 @@ define([
                 '", ',
                 attributes
             ].join(''));
+
+            if (core.getPath(node) === '') {
+                // It's the rootNode...
+                deferred.resolve();
+                return deferred.promise.nodeify(next);
+            }
 
             // Parent relationship
             relations.push([
@@ -298,7 +307,7 @@ define([
                     if (typeof targetPath === 'string') {
                         relations.push([
                             'create edge pointer from (select from node where path="',
-                            core.getPath(node),
+                            nodePath,
                             '") to (select from node where path="',
                             targetPath,
                             '") set ptr="',
@@ -324,17 +333,20 @@ define([
                 ].join(''));
             }
 
-            // TODO: Deal with sets!
             core.getSetNames(node).forEach(function (setName) {
                 var memberPaths = core.getMemberPaths(node, setName);
                 memberPaths.forEach(function (memberPath) {
-                    promises.push(
-                        core.loadByPath(rootNode, memberPath)
-                            .then(function (memberNode) {
-                                var memberMetaNode = core.getBaseType(memberNode),
-                                    memberMetaName = core.getAttribute(memberMetaNode, 'name');
-                            })
-                    );
+                    if (typeof memberPath === 'string') {
+                        relations.push([
+                            'create edge member from (select from node where path="',
+                            nodePath,
+                            '") to (select from node where path="',
+                            memberPath,
+                            '") set set="',
+                            setName,
+                            '"'
+                        ].join(''));
+                    }
                 })
             });
 
@@ -345,7 +357,7 @@ define([
             return deferred.promise.nodeify(next);
         }
 
-        return core.traverse(rootNode, {excludeRoot: true, stopOnError: true}, atNode)
+        return core.traverse(rootNode, {excludeRoot: false, stopOnError: true}, atNode)
             .then(function () {
                 return {
                     nodes: nodes,

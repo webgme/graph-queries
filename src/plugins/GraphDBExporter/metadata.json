@@ -10,5 +10,39 @@
   "disableServerSideExecution": false,
   "disableBrowserSideExecution": true,
   "writeAccessRequired": false,
-  "configStructure": []
+  "configStructure": [
+    {
+      "name": "host",
+      "displayName": "Host",
+      "description": "OrientDB host.",
+      "value": "localhost",
+      "valueType": "string",
+      "readOnly": false
+    },
+    {
+      "name": "port",
+      "displayName": "Port",
+      "description": "Binary OrientDB port.",
+      "value": 2424,
+      "valueType": "number",
+      "minValue": 0,
+      "readOnly": false
+    },
+    {
+      "name": "username",
+      "displayName": "Username",
+      "description": "Username for OrientDB.",
+      "value": "root",
+      "valueType": "string",
+      "readOnly": false
+    },
+    {
+      "name": "password",
+      "displayName": "Password",
+      "description": "Password for username in OrientDB.",
+      "value": "resan",
+      "valueType": "string",
+      "readOnly": false
+    }
+  ]
 }
