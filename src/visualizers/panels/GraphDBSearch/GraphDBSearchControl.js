@@ -5,14 +5,15 @@
  */
 
 define([
+    'superagent',
     'js/Constants',
     'js/Utils/GMEConcepts',
     'js/NodePropertyNames'
 ], function (
+    superagent,
     CONSTANTS,
     GMEConcepts,
-    nodePropertyNames
-) {
+    nodePropertyNames) {
 
     'use strict';
 
@@ -36,10 +37,49 @@ define([
     };
 
     GraphDBSearchControl.prototype._initWidgetEventHandlers = function () {
-        this._widget.onNodeClick = function (id) {
+        var self = this,
+            widget = this._widget;
+
+        widget.onNodeClick = function (id) {
             // Change the current active object
+            // FIXME: Load the correct territory
             WebGMEGlobal.State.registerActiveObject(id);
         };
+
+        widget.onSearch = function (queryStr) {
+            self.sendQuery(queryStr, function (err, result) {
+                var res;
+                if (!err) {
+                    res = {
+                        vertices: result.graph ? result.graph.vertices || [] : [],
+                        edges: result.graph ? result.graph.edges || [] : []
+                    };
+                }
+
+                widget.onSearchResult(err, res);
+            });
+        };
+    };
+
+    GraphDBSearchControl.prototype.sendQuery = function (query, callback) {
+        var projectId = this._client.getActiveProjectId(),
+            branchName = this._client.getActiveBranchName() || 'master',
+            project;
+
+        if (!projectId) {
+            callback(new Error('No project open.'));
+            return;
+        }
+
+        project = projectId.split('+');
+
+        superagent.post('/routers/GraphDBQuery/' + project[0] + '/' + project[1] + '/' + branchName)
+            .send({
+                command: query
+            })
+            .end(function (err, result) {
+                callback(err, result ? result.body : {});
+            });
     };
 
     /* * * * * * * * Visualizer content update callbacks * * * * * * * */
@@ -65,7 +105,7 @@ define([
             self._selfPatterns = {};
             self._selfPatterns[nodeId] = {children: 0};  // Territory "rule"
 
-            self._widget.setTitle(desc.name.toUpperCase());
+            //self._widget.setTitle(desc.name.toUpperCase());
 
             if (typeof desc.parentId === 'string') {
                 self.$btnModelHierarchyUp.show();
@@ -116,13 +156,10 @@ define([
             switch (event.etype) {
 
             case CONSTANTS.TERRITORY_EVENT_LOAD:
-                this._onLoad(event.eid);
                 break;
             case CONSTANTS.TERRITORY_EVENT_UPDATE:
-                this._onUpdate(event.eid);
                 break;
             case CONSTANTS.TERRITORY_EVENT_UNLOAD:
-                this._onUnload(event.eid);
                 break;
             default:
                 break;
@@ -130,20 +167,6 @@ define([
         }
 
         this._logger.debug('_eventCallback \'' + events.length + '\' items - DONE');
-    };
-
-    GraphDBSearchControl.prototype._onLoad = function (gmeId) {
-        var description = this._getObjectDescriptor(gmeId);
-        this._widget.addNode(description);
-    };
-
-    GraphDBSearchControl.prototype._onUpdate = function (gmeId) {
-        var description = this._getObjectDescriptor(gmeId);
-        this._widget.updateNode(description);
-    };
-
-    GraphDBSearchControl.prototype._onUnload = function (gmeId) {
-        this._widget.removeNode(gmeId);
     };
 
     GraphDBSearchControl.prototype._stateActiveObjectChanged = function (model, activeObjectId) {
