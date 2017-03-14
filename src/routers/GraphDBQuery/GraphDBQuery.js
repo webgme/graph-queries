@@ -15,6 +15,7 @@
 // http://expressjs.com/en/guide/routing.html
 var express = require('express'),
     router = express.Router(),
+    getProjectId = requireJS('common/storage/util').getProjectIdFromOwnerIdAndProjectName,
     Query = require('./query');
 
 /**
@@ -35,6 +36,7 @@ function initialize(middlewareOpts) {
     var logger = middlewareOpts.logger.fork('GraphDBQuery'),
         ensureAuthenticated = middlewareOpts.ensureAuthenticated,
         getUserId = middlewareOpts.getUserId,
+        gmeAuth = middlewareOpts.gmeAuth,
         query = new Query('http://localhost:2480', 'root', 'resan'); // TODO: Use a read only user.
 
     logger.debug('initializing ...');
@@ -58,10 +60,22 @@ function initialize(middlewareOpts) {
     });
 
     router.post('/:ownerId/:projectName/:branchOrCommitHash', function (req, res, next) {
-        var userId = getUserId(req);
-        // TODO: Ensure user is authorized.
+        var userId = getUserId(req),
+            projectAuthParams = {
+                entityType: gmeAuth.authorizer.ENTITY_TYPES.PROJECT
+            },
+            projectId = getProjectId(req.params.ownerId, req.params.projectName);
 
-        query.sendCommand(req.params.ownerId, req.params.projectName, req.params.branchOrCommitHash, req.body.command, 20)
+        gmeAuth.authorizer.getAccessRights(userId, projectId, projectAuthParams)
+            .then(function (rights) {
+                if (rights && rights.read) {
+                    return query.sendCommand(req.params.ownerId, req.params.projectName, req.params.branchOrCommitHash,
+                        req.body.command, 20);
+                } else {
+                    res.status(403);
+                    throw new Error('Query of graphDB requires read access to webgme project.');
+                }
+            })
             .then(function (result) {
                 logger.info('command succeeded', result);
                 res.json(result);
