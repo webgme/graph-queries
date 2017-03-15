@@ -12,10 +12,20 @@
         "test": "test/routers/GraphDBQuery",
         "mount": "routers/GraphDBQuery"
       }
+    },
+    "visualizers": {
+      "GraphDBSearch": {
+        "src": "panels/GraphDBSearch/GraphDBSearchPanel",
+        "title": "GraphDBSearch",
+        "panel": "src/visualizers/panels/GraphDBSearch",
+        "secondary": false,
+        "widget": "src/visualizers/widgets/GraphDBSearch"
+      }
     }
   },
   "dependencies": {
     "plugins": {},
-    "routers": {}
+    "routers": {},
+    "visualizers": {}
   }
 }

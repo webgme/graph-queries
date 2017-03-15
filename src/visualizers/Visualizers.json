@@ -1,0 +1,8 @@
+[
+  {
+    "id": "GraphDBSearch",
+    "title": "GraphDBSearch",
+    "panel": "panels/GraphDBSearch/GraphDBSearchPanel",
+    "DEBUG_ONLY": false
+  }
+]

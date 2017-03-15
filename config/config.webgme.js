@@ -11,14 +11,18 @@ config.plugin.basePaths.push(__dirname + '/../src/plugins');
 
 
 
+config.visualization.panelPaths.push(__dirname + '/../src/visualizers/panels');
 
 
 config.rest.components['routers/GraphDBQuery'] = __dirname + '/../src/routers/GraphDBQuery/GraphDBQuery.js';
 
 // Visualizer descriptors
-
+config.visualization.visualizerDescriptors.push(__dirname + '/../src/visualizers/Visualizers.json');
 // Add requirejs paths
-
+config.requirejsPaths = {
+  'panels': './src/visualizers/panels',
+  'widgets': './src/visualizers/widgets'
+};
 
 
 config.mongo.uri = 'mongodb://127.0.0.1:27017/webgme_graph_queries';
