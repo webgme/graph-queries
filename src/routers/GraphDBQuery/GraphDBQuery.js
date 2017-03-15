@@ -53,12 +53,6 @@ function initialize(middlewareOpts) {
     // Use ensureAuthenticated if the routes require authentication. (Can be set explicitly for each route.)
     router.use('*', ensureAuthenticated);
 
-    router.get('/getExample', function (req, res/*, next*/) {
-        var userId = getUserId(req);
-
-        res.json({userId: userId, message: 'get request was handled'});
-    });
-
     router.post('/:ownerId/:projectName/:branchOrCommitHash', function (req, res, next) {
         var userId = getUserId(req),
             projectAuthParams = {
@@ -77,7 +71,7 @@ function initialize(middlewareOpts) {
                 }
             })
             .then(function (result) {
-                logger.info('command succeeded', result);
+                //logger.info('command succeeded', result);
                 res.json(result);
             })
             .catch(function (err) {

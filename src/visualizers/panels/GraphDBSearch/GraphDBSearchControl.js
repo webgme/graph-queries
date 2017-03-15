@@ -41,7 +41,10 @@ define([
             widget = this._widget;
 
         widget.onNodeClick = function (id) {
-            // Change the current active object
+            WebGMEGlobal.State.registerActiveSelection([id]);
+        };
+
+        widget.onNodeDblClick = function (id) {
             // FIXME: Load the correct territory
             WebGMEGlobal.State.registerActiveObject(id);
         };

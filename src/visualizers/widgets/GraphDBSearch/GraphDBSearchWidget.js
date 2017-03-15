@@ -6,13 +6,15 @@
  */
 
 define([
+    'js/Loader/LoaderCircles',
     'text!./templates/GraphDBSearchWidget.html',
     'css!./styles/GraphDBSearchWidget.css'
-], function (TEMPLATE) {
+], function (LoaderCircles, TEMPLATE) {
     'use strict';
 
     var GraphDBSearchWidget,
-        WIDGET_CLASS = 'graph-db-search';
+        WIDGET_CLASS = 'graph-db-search',
+        COLLAPSE_ID_PREFIX = 'graphDBSearchId';
 
     GraphDBSearchWidget = function (logger, container) {
         this._logger = logger.fork('Widget');
@@ -36,12 +38,27 @@ define([
         // Create a dummy header 
         this._el.append(TEMPLATE);
 
+        this._loader = new LoaderCircles({containerElement: this._el});
+
         this._okBtn = this._el.find('.ok-btn');
         this._inputQuery = this._el.find('.input-query');
         this._errorBadge = this._el.find('.error-badge');
+        this._errorBadge.hide();
+
+        this._infoBadge = this._el.find('.info-badge');
+        this._infoBadge.hide();
         this._resultContainer = this._el.find('.result-container');
 
-        this._inputQuery.val("V.has('path', '/1')");
+        this._inputQuery.val("V.has('path', '/1').inE('base').outV");
+
+        this._inputQuery.on('keyup', function (event) {
+            if (event.keyCode == 13 && self._okBtn.prop('disabled') === false) {
+                // Enter was hit..
+                event.stopPropagation();
+                event.preventDefault();
+                self.onSearchClick();
+            }
+        });
 
         // Registering to events can be done with jQuery (as normal)
         this._okBtn.on('click', function (event) {
@@ -49,6 +66,10 @@ define([
             event.preventDefault();
             self.onSearchClick();
         });
+
+        this._infoBadge.on('click', function () {
+            $(this).hide();
+        })
     };
 
     GraphDBSearchWidget.prototype.onWidgetContainerResize = function (width, height) {
@@ -61,15 +82,21 @@ define([
         var queryStr = this._inputQuery.val();
         this._okBtn.prop('disabled', true);
         this._errorBadge.hide();
+        this._infoBadge.hide();
+        this._resultContainer.children().off();
         this._resultContainer.empty();
+        this._loader.start();
         this.onSearch('g.' + queryStr);
     };
 
     /* * * * * * * * Controller callbacks * * * * * * * */
 
     GraphDBSearchWidget.prototype.onSearchResult = function (err, result) {
-        var self = this;
+        var self = this,
+            infoText = '';
+
         this._okBtn.prop('disabled', false);
+        this._loader.stop();
         if (err) {
             this._errorBadge.text(err.message);
             this._errorBadge.show();
@@ -77,21 +104,66 @@ define([
             result.vertices.forEach(function (objDesc) {
                 self.addVertex(objDesc);
             });
+
+            infoText = 'Found ' + result.vertices.length + ' node(s) and ' + result.edges.length + ' edge(s).';
+            this._infoBadge.text(infoText);
+            this._infoBadge.show();
         }
     };
 
     GraphDBSearchWidget.prototype.addVertex = function (objDesc) {
-        var vEl = $('<div/>', {
-            class: 'vertex-result'
-        });
+        var self = this,
+            vEl = $('<div/>', {
+                class: 'vertex-result'
+            });
 
-        vEl.text(objDesc.name + '[' + objDesc.path + ']');
+        vEl.append($('<div/>', {
+            class: 'vertex-name'
+        }).text(objDesc.name));
+
+        vEl.append($('<a/>', {class: 'vertex-path', title: 'Click to select, double click to open'})
+            .text('[ ' + objDesc.path + ' ]')
+            .on('click', function () {
+                self.onNodeClick(objDesc.path);
+            })
+            .on('dblclick', function () {
+                self.onNodeDblClick(objDesc.path);
+            })
+        );
+
+        vEl.append($('<a/>', {
+            class: 'vertex-path',
+            'data-toggle': 'collapse',
+            href: '#' + self.getIdFromPath(objDesc.path)
+        }).text('>'));
+
+        vEl.append($('<pre/>', {
+                id: self.getIdFromPath(objDesc.path),
+                class: 'collapse'
+            }).text(JSON.stringify(objDesc, null, 2))
+        );
 
         this._resultContainer.append(vEl);
     };
 
+    GraphDBSearchWidget.prototype.addEmptyResult = function () {
+        var self = this,
+            vEl = $('<h4/>', {
+                class: 'empty-result'
+            }).text('No nodes matching the query...');
+
+        this._resultContainer.append(vEl);
+    };
+
+    GraphDBSearchWidget.prototype.getIdFromPath = function (path) {
+        return COLLAPSE_ID_PREFIX + path.replace(/\//g, '_');
+    };
+
     /* * * * * * * * Visualizer life cycle callbacks * * * * * * * */
     GraphDBSearchWidget.prototype.destroy = function () {
+        this._resultContainer.children().off();
+        this._okBtn.off();
+        this._loader.destroy();
     };
 
     GraphDBSearchWidget.prototype.onActivate = function () {

@@ -34,8 +34,6 @@ function Query(baseUrl, username, password) {
             return deferred.promise;
         }
 
-        console.log('Posting', url);
-        console.log('With command', command);
         superagent.post(url)
             .set('Authorization', basicAuth)
             .send({

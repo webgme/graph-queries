@@ -72,7 +72,7 @@ define([
             }),
             db;
 
-        logger.info('Deleting nodes and relations from graphDB...');
+        logger.info('Removing old previous data from graphDB...');
         this.createOrGetDatabase(server)
             .then(function (db_) {
                 db = db_;
@@ -211,13 +211,13 @@ define([
     GraphDBExporter.prototype.getGraphDBData = function (core, rootNode, callback) {
         var self = this,
             nodes = [],
+            guids = {},
             relations = [];
 
         function encodeAttribute(str) {
             //return str;
             if (typeof str === 'string') {
-                // TODO: There hsould be a better way to do this..
-                //return str.replace(/&/g, "&amp;").replace(/>/g, "&gt;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+                // FIXME: There should be a better way to do this..
                 return str.replace(/([^"\\]*(?:\\.[^"\\]*)*)"/g, '$1\\"');
             } else {
                 return str;
@@ -230,6 +230,7 @@ define([
                 nodePath = core.getPath(node),
                 metaNode = core.getBaseType(node),
                 baseNode = core.getBase(node),
+                guid = core.getGuid(node),
                 attributes,
                 connInfo = {
                     src: null,
@@ -238,7 +239,8 @@ define([
                 promises = [];
 
             attributes = core.getAttributeNames(node).map(function (attrName) {
-                var dbName;
+                var dbName,
+                    attrVal;
 
                 if (maps.CONSTANTS.ILLEGAL_ATTR.indexOf(attrName) > -1) {
                     dbName = maps.CONSTANTS.PREFIX_ILLEGAL_ATTR + attrName;
@@ -247,13 +249,19 @@ define([
                     dbName = attrName;
                 }
 
-                return '`' + dbName + '`=`' + encodeAttribute(core.getAttribute(node, attrName)) + '`';
+                attrVal = core.getAttribute(node, attrName);
+                return '`' + dbName + '`="' + encodeAttribute(attrVal) + '"';
             }).join(', ');
 
+            // guid = core.getGuid(node);
+            // if (guids.hasOwnProperty(guid)) {
+            //     self.logger.info('GUID collision', guids[guid], 'other', nodePath);
+            // }
+            // guids[guid] = nodePath;
             // Add the node.
             nodes.push([
                 'create vertex node set guid="',
-                core.getGuid(node),
+                guid,
                 '", path="',
                 nodePath,
                 '", relid="',
