@@ -14,14 +14,15 @@ define([
 
     var GraphDBSearchWidget,
         WIDGET_CLASS = 'graph-db-search',
-        COLLAPSE_ID_PREFIX = 'graphDBSearchId';
+        COLLAPSE_ID_PREFIX = 'graphDBSearchId',
+        DISPLY_INC = 50;
 
     GraphDBSearchWidget = function (logger, container) {
         this._logger = logger.fork('Widget');
 
         this._el = container;
 
-        this.nodes = {};
+        this._pendingVertices = [];
         this._initialize();
 
         this._logger.debug('ctor finished');
@@ -40,17 +41,8 @@ define([
 
         this._loader = new LoaderCircles({containerElement: this._el});
 
-        this._okBtn = this._el.find('.ok-btn');
         this._inputQuery = this._el.find('.input-query');
-        this._errorBadge = this._el.find('.error-badge');
-        this._errorBadge.hide();
-
-        this._infoBadge = this._el.find('.info-badge');
-        this._infoBadge.hide();
-        this._resultContainer = this._el.find('.result-container');
-
         this._inputQuery.val("V.has('path', '/1').inE('base').outV");
-
         this._inputQuery.on('keyup', function (event) {
             if (event.keyCode == 13 && self._okBtn.prop('disabled') === false) {
                 // Enter was hit..
@@ -58,6 +50,29 @@ define([
                 event.preventDefault();
                 self.onSearchClick();
             }
+        });
+
+        this._okBtn = this._el.find('.ok-btn');
+
+        this._errorBadge = this._el.find('.error-badge');
+        this._infoBadge = this._el.find('.info-badge');
+        this._infoBadge.hide();
+        this._errorBadge.hide();
+
+        this._resultContainer = this._el.find('.result-container');
+
+        this._displayControls = this._el.find('.display-more-controls');
+        this._displayMore = this._el.find('.display-more');
+        this._displayAll = this._el.find('.display-all');
+
+        this._displayControls.hide();
+
+        this._displayMore.on('click', function () {
+            self.addPendingVerticies();
+        });
+
+        this._displayAll.on('click', function () {
+            self.addPendingVerticies(true);
         });
 
         // Registering to events can be done with jQuery (as normal)
@@ -80,6 +95,9 @@ define([
 
     GraphDBSearchWidget.prototype.onSearchClick = function () {
         var queryStr = this._inputQuery.val();
+
+        this._pendingVertices = [];
+        this._displayControls.hide();
         this._okBtn.prop('disabled', true);
         this._errorBadge.hide();
         this._infoBadge.hide();
@@ -101,13 +119,32 @@ define([
             this._errorBadge.text(err.message);
             this._errorBadge.show();
         } else {
-            result.vertices.forEach(function (objDesc) {
-                self.addVertex(objDesc);
-            });
-
             infoText = 'Found ' + result.vertices.length + ' node(s) and ' + result.edges.length + ' edge(s).';
             this._infoBadge.text(infoText);
             this._infoBadge.show();
+            this._pendingVertices = result.vertices;
+            this.addPendingVerticies(false);
+        }
+    };
+
+    GraphDBSearchWidget.prototype.addPendingVerticies = function (addAll) {
+        var i,
+            max = addAll ? this._pendingVertices.length : DISPLY_INC,
+            objDesc;
+
+        for (i = 0; i < max; i += 1) {
+            objDesc = this._pendingVertices.pop();
+            if (objDesc) {
+                this.addVertex(objDesc);
+            } else {
+                break;
+            }
+        }
+
+        if (this._pendingVertices.length > 0) {
+            this._displayControls.show();
+        } else {
+            this._displayControls.hide();
         }
     };
 
@@ -118,7 +155,7 @@ define([
             });
 
         vEl.append($('<div/>', {
-            class: 'vertex-name'
+            class: 'vertex-name user-select-text'
         }).text(objDesc.name));
 
         vEl.append($('<a/>', {class: 'vertex-path', title: 'Click to select, double click to open'})
@@ -139,7 +176,7 @@ define([
 
         vEl.append($('<pre/>', {
                 id: self.getIdFromPath(objDesc.path),
-                class: 'collapse'
+                class: 'collapse user-select-text'
             }).text(JSON.stringify(objDesc, null, 2))
         );
 

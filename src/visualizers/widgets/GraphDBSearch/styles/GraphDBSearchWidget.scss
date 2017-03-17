@@ -17,4 +17,29 @@
       }
     }
   }
+  .display-more-controls {
+    text-align: center;
+    height: 36px;
+    line-height: 36px;
+    background-color: #F7F7F7;
+    border-bottom: 1px solid #3a87ad;
+    border-top: 1px solid #3a87ad;
+    margin-top: 30px;
+    position: relative;
+    .display-more-control {
+      cursor: pointer;
+      &.display-more {
+        margin-right: 20px;
+      }
+    }
+  }
+
+  // Will be redundant after v2.11.1
+  .user-select-text {
+    -moz-user-select:text;
+    -webkit-user-select:text;
+    -o-user-select:text;
+    user-select:text;
+    -ms-user-select:text;
+  }
 }
