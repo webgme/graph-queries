@@ -43,6 +43,15 @@
       "value": "root",
       "valueType": "string",
       "readOnly": false
+    },
+    {
+      "name": "batchSize",
+      "displayName": "Batch sizes",
+      "description": "Max number of parallel insert requests to the graphDB",
+      "value": 1000,
+      "valueType": "number",
+      "minValue": 1,
+      "readOnly": false
     }
   ]
 }
