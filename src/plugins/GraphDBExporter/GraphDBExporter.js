@@ -81,22 +81,13 @@ define([
                 return self.getGraphDBData(self.core, self.rootNode);
             })
             .then(function (result) {
+                logger.info('Inserting nodes to graphDB...');
                 data = result;
-                // FIXME: Some sort of throttling or batched inserts should be done when inserting.
-
-                logger.info('Adding nodes to graphDB...');
-                return Q.all(data.nodes.map(function (node) {
-                    self.logger.debug(node);
-                    return db.query(node);
-                }));
+                return self.insertEntries(db, data.nodes, config);
             })
             .then(function () {
-
-                logger.info('Adding relations to graphDB...');
-                return Q.all(data.relations.map(function (rel) {
-                    self.logger.debug(rel);
-                    return db.query(rel);
-                }));
+                logger.info('Inserting relations to graphDB...');
+                return self.insertEntries(db, data.relations, config);
             })
             .then(function () {
                 self.result.setSuccess(true);
@@ -215,10 +206,8 @@ define([
             relations = [];
 
         function encodeAttribute(str) {
-            //return str;
             if (typeof str === 'string') {
-                // FIXME: There should be a better way to do this..
-                return str.replace(/([^"\\]*(?:\\.[^"\\]*)*)"/g, '$1\\"');
+                return JSON.stringify(str);
             } else {
                 return str;
             }
@@ -250,25 +239,18 @@ define([
                 }
 
                 attrVal = core.getAttribute(node, attrName);
-                return '`' + dbName + '`="' + encodeAttribute(attrVal) + '"';
+                return '`' + dbName + '`=' + encodeAttribute(attrVal);
             }).join(', ');
 
-            // guid = core.getGuid(node);
-            // if (guids.hasOwnProperty(guid)) {
-            //     self.logger.info('GUID collision', guids[guid], 'other', nodePath);
-            // }
-            // guids[guid] = nodePath;
-            // Add the node.
-            nodes.push([
-                'create vertex node set guid="',
-                guid,
-                '", path="',
-                nodePath,
-                '", relid="',
-                core.getRelid(node),
-                '", ',
-                attributes
-            ].join(''));
+            nodes.push({
+                query: [
+                    'create vertex node set guid="', guid,
+                    '", path="', nodePath,
+                    '", relid="', core.getRelid(node),
+                    '", ', attributes
+                ].join(''),
+                nodePath: nodePath
+            });
 
             if (core.getPath(node) === '') {
                 // It's the rootNode...
@@ -277,33 +259,33 @@ define([
             }
 
             // Parent relationship
-            relations.push([
-                'create edge parent from (select from node where path="',
-                nodePath,
-                '") to (select from node where path= "',
-                core.getPath(parent),
-                '")'
-            ].join(''));
+            relations.push({
+                query: [
+                    'create edge parent from (select from node where path="', nodePath,
+                    '") to (select from node where path= "', core.getPath(parent), '")'
+                ].join(''),
+                nodePath: nodePath
+            });
 
             // Base relationship
             if (baseNode) {
-                relations.push([
-                    'create edge base from (select from node where path= "',
-                    nodePath,
-                    '") to (select from node where path="',
-                    core.getPath(baseNode),
-                    '")'
-                ].join(''));
+                relations.push({
+                    query: [
+                        'create edge base from (select from node where path= "', nodePath,
+                        '") to (select from node where path="', core.getPath(baseNode), '")'
+                    ].join(''),
+                    nodePath: nodePath
+                });
             }
 
             // Meta relationship
-            relations.push([
-                'create edge meta from (select from node where path= "',
-                nodePath,
-                '") to (select from node where path="',
-                core.getPath(metaNode),
-                '")'
-            ].join(''));
+            relations.push({
+                query: [
+                    'create edge meta from (select from node where path= "', nodePath,
+                    '") to (select from node where path="', core.getPath(metaNode), '")'
+                ].join(''),
+                nodePath: nodePath
+            });
 
             // Pointer relationships (excluding base)
             core.getPointerNames(node).forEach(function (ptrName) {
@@ -313,15 +295,14 @@ define([
                     targetPath = core.getPointerPath(node, ptrName);
                     //TODO: Should null pointers have a special target?
                     if (typeof targetPath === 'string') {
-                        relations.push([
-                            'create edge pointer from (select from node where path="',
-                            nodePath,
-                            '") to (select from node where path="',
-                            targetPath,
-                            '") set ptr="',
-                            ptrName,
-                            '"'
-                        ].join(''));
+                        relations.push({
+                            query: [
+                                'create edge pointer from (select from node where path="', nodePath,
+                                '") to (select from node where path="', targetPath,
+                                '") set ptr="', ptrName, '"'
+                            ].join(''),
+                            nodePath: nodePath
+                        });
 
                         if (ptrName == 'src' || ptrName === 'dst') {
                             connInfo[ptrName] = targetPath;
@@ -332,28 +313,27 @@ define([
 
             // Add the src and dst as connections as well.
             if (connInfo.src && connInfo.dst) {
-                relations.push([
-                    'create edge connection from (select from node where path="',
-                    connInfo.src,
-                    '") to (select from node where path="',
-                    connInfo.dst,
-                    '")'
-                ].join(''));
+                relations.push({
+                    query: [
+                        'create edge connection from (select from node where path="', connInfo.src,
+                        '") to (select from node where path="', connInfo.dst, '")'
+                    ].join(''),
+                    nodePath: nodePath
+                });
             }
 
             core.getSetNames(node).forEach(function (setName) {
                 var memberPaths = core.getMemberPaths(node, setName);
                 memberPaths.forEach(function (memberPath) {
                     if (typeof memberPath === 'string') {
-                        relations.push([
-                            'create edge member from (select from node where path="',
-                            nodePath,
-                            '") to (select from node where path="',
-                            memberPath,
-                            '") set set="',
-                            setName,
-                            '"'
-                        ].join(''));
+                        relations.push({
+                            query: [
+                                'create edge member from (select from node where path="', nodePath,
+                                '") to (select from node where path="', memberPath,
+                                '") set set="', setName, '"'
+                            ].join(''),
+                            nodePath: nodePath
+                        });
                     }
                 })
             });
@@ -373,6 +353,70 @@ define([
                 }
             })
             .nodeify(callback);
+    };
+
+    GraphDBExporter.prototype.insertEntries = function (db, entries, config) {
+        var self = this,
+            entArrays = [],
+            nbrOfbatches = 0,
+            cnt = 0;
+
+        function insertBatch() {
+            var batchEntries = entArrays[cnt];
+
+            return Q.allSettled(batchEntries.map(function (entry) {
+                return db.query(entry.query);
+            }))
+                .then(function (res) {
+                    var errors = [],
+                        i;
+
+                    // One more batch was handled.
+                    cnt += 1;
+
+                    // Gather all errors.
+                    for (i = 0; i < res.length; i += 1) {
+                        if (res[i].state !== 'fulfilled') {
+                            errors.push({
+                                err: res[i].reason,
+                                node: batchEntries[i].nodePath,
+                                query: batchEntries[i].query
+                            });
+                        }
+                    }
+
+                    if (errors.length > 0) {
+                        self.logger.error('Got', errors.length, 'insertion errors in batch - execution stopped.');
+                        Q.all(errors.map(function (error) {
+                            return self.core.loadByPath(self.rootNode, error.nodePath)
+                                .then(function (node) {
+                                    self.createMessage(node, error.err.message, 'error');
+                                });
+                        }))
+                            .then(function () {
+                                throw new Error('Errors during insertion, see messages');
+                            });
+
+                    } else if (cnt >= nbrOfbatches) {
+                        return Q();
+                    } else {
+                        self.logger.info('Done with batch [', cnt, '/', nbrOfbatches, ']');
+                        return insertBatch();
+                    }
+                });
+        }
+
+        while (entries.length > 0) {
+            entArrays.push(entries.splice(0, config.batchSize));
+            nbrOfbatches += 1;
+        }
+
+        self.logger.info('Inserting as', nbrOfbatches, 'batch(es).');
+        if (nbrOfbatches > 0) {
+            return insertBatch();
+        } else {
+            return Q();
+        }
     };
 
     return GraphDBExporter;
