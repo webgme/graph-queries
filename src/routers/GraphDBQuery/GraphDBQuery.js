@@ -37,7 +37,7 @@ function initialize(middlewareOpts) {
         ensureAuthenticated = middlewareOpts.ensureAuthenticated,
         getUserId = middlewareOpts.getUserId,
         gmeAuth = middlewareOpts.gmeAuth,
-        query = new Query('http://localhost:2480', 'root', 'resan'); // TODO: Use a read only user.
+        query = new Query('http://localhost:2480', 'root', 'root'); // TODO: Use a read only user.
 
     logger.debug('initializing ...');
 

@@ -40,7 +40,7 @@
       "name": "password",
       "displayName": "Password",
       "description": "Password for username in OrientDB.",
-      "value": "resan",
+      "value": "root",
       "valueType": "string",
       "readOnly": false
     }
