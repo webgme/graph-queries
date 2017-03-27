@@ -6,6 +6,7 @@
 'use strict';
 
 var config = require('./config.default'),
+    path = require('path'),
     validateConfig = require('webgme/config/validator');
 
 config.server.port = 80;
