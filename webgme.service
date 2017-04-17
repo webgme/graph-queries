@@ -1,0 +1,20 @@
+[Unit]
+Description=WebGME Server
+Documentation=https://webgme.org
+Requires=mongod.service
+
+[Service]
+WorkingDirectory=/home/ubuntu/graph-queries
+# invoke the webgme application (edit path to node if installed elsewhere)
+ExecStart=/home/ubuntu/.nvm/versions/node/v6.9.5/bin/node app.js  
+Restart=always
+RestartSec=10                       # Restart service after 10 seconds if node service crashes
+StandardOutput=syslog               # Output to syslog
+StandardError=syslog                # Output to syslog
+SyslogIdentifier=webgme-example
+#User=<alternate user>
+#Group=<alternate group>
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
