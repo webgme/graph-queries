@@ -22,5 +22,16 @@ config.blob.fsDir = '../blob-local-storage';
 config.addOn.enable = true;
 config.addOn.workerUrl = 'http://127.0.0.1:8080';
 
+config.bin.log.transports.push({
+                    transportType: 'File',
+                    options: {
+                        name: 'bin-debug-file',
+                        filename: './addon.log',
+                        level: 'debug',
+                        json: false
+                    }
+                });
+
+
 validateConfig(config);
 module.exports = config;
