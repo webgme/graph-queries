@@ -1,0 +1,19 @@
+[Unit]
+Description=WebGME Addon Handler
+Documentation=https://webgme.org
+Requires=mongod.service
+
+[Service]
+WorkingDirectory=/home/ubuntu/graph-queries
+ExecStart=/home/ubuntu/.nvm/versions/node/v6.9.5/bin/node node_modules/webgme/src/bin/addon_handler.js -u http://127.0.0.1:8888 -p 8080  
+Restart=always
+RestartSec=10                       # Restart service after 10 seconds if node service crashes
+StandardOutput=syslog               # Output to syslog
+StandardError=syslog                # Output to syslog
+SyslogIdentifier=webgme-addon
+#User=<alternate user>
+#Group=<alternate group>
+Environment=NODE_ENV=multi
+
+[Install]
+WantedBy=multi-user.target
