@@ -33,7 +33,7 @@ Double check that blob-local-storage exists as defined in `config/config.multi.j
  - `sudo cp webgme_addon.service /lib/systemd/webgme_addon.service`
 
 Reload the daemon
-`sudo systemctl --system daeman-reload`
+`sudo systemctl --system daemon-reload`
 
 #### Starting/Restarting Webgme Services
  - `sudo systemctl --system start webgme1.service`
