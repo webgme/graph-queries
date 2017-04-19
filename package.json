@@ -15,7 +15,7 @@
   },
   "version": "1.0.0",
   "peerDependencies": {
-    "webgme": "^2.0.0"
+   
   },
   "devDependencies": {
     "mocha": "^2.2.5",
@@ -26,6 +26,7 @@
     "body-parser": "^1.16.1",
     "orientjs": "^2.2.4",
     "q": "^1.4.1",
-    "superagent": "2.2.0"
+    "superagent": "2.2.0",
+    "webgme": "github://webgme/webgme#addon-and-connected-storage"
   }
 }
