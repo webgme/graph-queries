@@ -28,9 +28,9 @@ Make sure to have to repositories checked out (edit path in services if needed).
 
 Double check that blob-local-storage exists as defined in `config/config.multi.js`.
 
- - `sudo cp webgme1.service /lib/systemd/webgme1.service`
- - `sudo cp webgme2.service /lib/systemd/webgme2.service`
- - `sudo cp webgme_addon.service /lib/systemd/webgme_addon.service`
+ - `sudo cp webgme1.service /lib/systemd/system/webgme1.service`
+ - `sudo cp webgme2.service /lib/systemd/system/webgme2.service`
+ - `sudo cp webgme_addon.service /lib/systemd/system/webgme_addon.service`
 
 Reload the daemon
 `sudo systemctl --system daemon-reload`
