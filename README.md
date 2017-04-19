@@ -41,5 +41,6 @@ Reload the daemon
  - `sudo systemctl --system start webgme_addon.service`
 
  - `sudo systemctl --system stop webgme1.service`
-
  - `sudo systemctl --system restart webgme1.service`
+ - `sudo systemctl --system status webgme1.service`
+
