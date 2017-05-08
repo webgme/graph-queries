@@ -27,6 +27,6 @@
     "orientjs": "^2.2.4",
     "q": "^1.4.1",
     "superagent": "2.2.0",
-    "webgme": "github://webgme/webgme#addon-and-connected-storage"
+    "webgme": "github://webgme/webgme"
   }
 }
